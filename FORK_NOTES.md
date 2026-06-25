@@ -4,15 +4,46 @@ Forked from: https://github.com/safishamsi/graphify
 Fork remote: https://github.com/justinhchae/graphify.git  
 Branch: v8-ps
 
-## Esri PS Patches
+---
 
-**2026-06-25**
+## Usage (PS Fork)
+
+### Environment variables
+
+Create a `.env` file at the project root before running graphify:
+
+```env
+GRAPHIFY_OUT=graphify-out        # output directory; defaults to graphify-out if omitted
+GEMINI_API_KEY=your-key-here     # required for semantic extraction
+# GOOGLE_API_KEY=...             # alternative to GEMINI_API_KEY
+```
+
+`_load_dotenv()` runs at startup before the paths module loads, so `.env` values are available immediately at import time. `python-dotenv` is an optional dependency — if not installed, a built-in fallback parser reads the file directly (supports `KEY=value` and `KEY="value"`; no multiline values or shell substitution).
+
+### ArcGIS Pro file types
+
+`.pyt` (Python Toolbox) and `.bat` (batch launcher) files are treated as code and included in LLM semantic extraction. No configuration required — detection is automatic.
+
+### Rebase workflow
+
+```
+git fetch upstream
+git rebase upstream/main
+```
+
+Re-run `pip install -e .` and rebuild graphs after each rebase.
+
+---
+
+## Changelog
+
+### 2026-06-25 — Esri PS extensions
 
 - `graphify/__main__.py`: Restored `_load_dotenv()` call before `from graphify.paths import GRAPHIFY_OUT`. Loads `.env` from CWD at startup so `GRAPHIFY_OUT` and API keys are available at import time. Falls back to manual parse if `python-dotenv` is not installed.
 - `graphify/detect.py`: Added `.pyt` to `CODE_EXTENSIONS`. ArcGIS Pro Python Toolbox files are treated as code (LLM semantic extraction).
 - `graphify/detect.py`: Added `.bat` to `CODE_EXTENSIONS`. Windows workflow launcher scripts are treated as code (LLM semantic extraction).
 
-## Windows Compatibility Patches (v8-ps branch)
+### 2026-06-25 — Windows compatibility (v8-ps branch)
 
 All fixes address pre-existing upstream failures on Windows; none alter POSIX behavior.
 
@@ -34,17 +65,5 @@ All fixes address pre-existing upstream failures on Windows; none alter POSIX be
 - `graphify/llm.py` (`_build_image_refs`): `str(p.relative_to(root))` changed to `p.relative_to(root).as_posix()` — prevents backslash image ref paths on Windows.
 - `graphify/watch.py` (`_queue_pending`): `os.fspath(p)` changed to `p.as_posix()` — pending-changes file uses forward-slash paths consistently.
 - `graphify/manifest_ingest.py` (`_parse_apm_fallback`): extracts `version:` field when PyYAML is not installed, fixing `KeyError: 'version'` in `test_apm_parses_name_and_deps`.
-- `tools/skillgen/gen.py` (`_git_show`): added `encoding="utf-8"` to `subprocess.run` — prevents `UnicodeDecodeError` on Windows cp1252 when reading git blobs.
-- `graphify/export.py` (`to_obsidian`): compute `_fname_limit` dynamically from `out.resolve()` on Windows so the total path stays under MAX_PATH (260). Short output paths (≤37 chars) keep the existing 200-byte cap unchanged; deep paths shrink the cap proportionally. Fixes `test_obsidian_long_ascii_label_does_not_crash` and two related tests.
-
-**Deferred (known, not fixed)**
-- None at this time.
-
-## Rebase Workflow
-
-```
-git fetch upstream
-git rebase upstream/main
-```
-
-Re-run `pip install -e .` and rebuild graphs after each rebase.
+- `tools/skillgen/gen.py` (`_git_show`): added `encoding="utf-8"` and `errors="replace"` to `subprocess.run` — prevents `UnicodeDecodeError` on Windows cp1252 when reading git blobs.
+- `graphify/export.py` (`to_obsidian`): compute `_fname_limit` dynamically from `out.resolve()` on Windows so the total path stays under MAX_PATH (260). Short output paths keep the existing 200-byte cap unchanged; deep paths shrink the cap proportionally.
