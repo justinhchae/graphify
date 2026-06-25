@@ -1,11 +1,15 @@
 """Tests for hooks.py - git hook install/uninstall."""
+
 import os
 import shutil
 import subprocess
-from types import SimpleNamespace
+import sys
 from pathlib import Path
+from types import SimpleNamespace
+
 import pytest
-from graphify.hooks import install, uninstall, status, _hooks_dir, _HOOK_MARKER, _CHECKOUT_MARKER
+
+from graphify.hooks import _CHECKOUT_MARKER, _HOOK_MARKER, _hooks_dir, install, status, uninstall
 
 
 def _make_git_repo(tmp_path: Path) -> Path:
@@ -121,7 +125,6 @@ def test_status_shows_both_hooks(tmp_path):
     assert result.count("installed") >= 2
 
 
-
 def test_hooks_dir_resolves_relative_git_hooks_path(tmp_path, monkeypatch):
     repo = _make_git_repo(tmp_path)
 
@@ -156,10 +159,12 @@ def test_hooks_dir_accepts_absolute_git_hooks_path(tmp_path, monkeypatch):
 
     assert _hooks_dir(repo) == hooks.resolve()
 
+
 def test_hook_skips_head_on_exe():
     """Hook script must skip shebang extraction for .exe binaries (Windows)."""
     from graphify.hooks import _PYTHON_DETECT
-    assert "*.exe) _SHEBANG=" in _PYTHON_DETECT or '*.exe)' in _PYTHON_DETECT
+
+    assert "*.exe) _SHEBANG=" in _PYTHON_DETECT or "*.exe)" in _PYTHON_DETECT
 
 
 def test_install_embeds_pinned_interpreter(tmp_path):
@@ -173,7 +178,9 @@ def test_install_embeds_pinned_interpreter(tmp_path):
     fallbacks cannot import graphify (wrong venv), and the hook silently exits 0.
     Pinning sys.executable at install time makes the hook work regardless of PATH.
     """
-    import re, sys
+    import re
+    import sys
+
     repo = _make_git_repo(tmp_path)
     install(repo)
     commit_hook = (repo / ".git" / "hooks" / "post-commit").read_text()
@@ -195,6 +202,7 @@ def test_install_fallback_is_loud_not_silent(tmp_path):
     that the hook ran but found nothing, making the bug extremely hard to diagnose.
     """
     from graphify.hooks import _PYTHON_DETECT
+
     assert "could not locate" in _PYTHON_DETECT, (
         "fallback branch must print a diagnostic message; bare 'exit 0' is silent and unhelpful"
     )
@@ -203,6 +211,7 @@ def test_install_fallback_is_loud_not_silent(tmp_path):
 def test_hook_check_no_additionalContext(tmp_path):
     """graphify hook-check must not emit additionalContext — Codex Desktop rejects it."""
     import sys
+
     out = tmp_path / "graphify-out"
     out.mkdir()
     (out / "graph.json").write_text("{}", encoding="utf-8")
@@ -225,10 +234,10 @@ import ast  # noqa: E402
 import re  # noqa: E402
 
 from graphify.hooks import (  # noqa: E402
-    _HOOK_SCRIPT,
     _CHECKOUT_SCRIPT,
-    _REBUILD_BODY_COMMIT,
+    _HOOK_SCRIPT,
     _REBUILD_BODY_CHECKOUT,
+    _REBUILD_BODY_COMMIT,
     _detached_launch,
 )
 
@@ -375,17 +384,28 @@ def test_installed_hooks_contain_no_nohup(tmp_path):
 
 # ── #1385: reject Windows-style hooks paths instead of creating a junk dir ───
 
+
 def _set_hookspath(repo: Path, value: str) -> None:
-    subprocess.run(["git", "-C", str(repo), "config", "--local", "core.hooksPath", value],
-                   check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(repo), "config", "--local", "core.hooksPath", value],
+        check=True,
+        capture_output=True,
+    )
 
 
-@pytest.mark.parametrize("winpath", [
-    r"C:\Users\u\repo\.git\hooks",
-    r"c:/Users/u/.git/hooks",
-    r"D:\hooks",
-    r"some\back\slashed\path",
-])
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows paths are valid on native Windows; junk-dir risk only exists on POSIX/WSL",
+)
+@pytest.mark.parametrize(
+    "winpath",
+    [
+        r"C:\Users\u\repo\.git\hooks",
+        r"c:/Users/u/.git/hooks",
+        r"D:\hooks",
+        r"some\back\slashed\path",
+    ],
+)
 def test_windows_hookspath_rejected_no_junk_dir_on_posix(tmp_path, monkeypatch, winpath):
     """A Windows-style core.hooksPath must raise (loud failure), not silently
     create a backslash-named junk directory and report success on POSIX/WSL (#1385)."""
@@ -417,6 +437,7 @@ def test_default_hooks_dir_unaffected(tmp_path):
 
 # ── foreground hook cost: probes must be cheap and quiet ─────────────────────
 
+
 def test_probes_use_find_spec_not_full_import():
     """`python -c "import graphify"` executes the FULL package import — 10s+ on a
     cold cache or AV-scanned site-packages — and could run up to four times
@@ -425,6 +446,7 @@ def test_probes_use_find_spec_not_full_import():
     importlib.util.find_spec (no execution); the detached rebuild still reports
     a broken install loudly in its log."""
     from graphify.hooks import _PYTHON_DETECT
+
     assert '-c "import graphify"' not in _PYTHON_DETECT, (
         "interpreter probe still imports the full package in the hook foreground"
     )
@@ -438,6 +460,7 @@ def test_shebang_read_is_null_byte_safe():
     the extracted garbage always falls through to the slow fallbacks. The read
     must strip NULs before the command substitution sees them."""
     from graphify.hooks import _PYTHON_DETECT
+
     assert "tr -d '\\000'" in _PYTHON_DETECT, "shebang read is not NUL-safe"
 
 
@@ -446,6 +469,7 @@ def test_probe_prefers_sibling_python_exe_on_windows_layouts():
     .\\python.exe in a venv). Resolving that directly beats shebang-parsing a
     binary launcher — and works whether or not command -v kept the suffix."""
     from graphify.hooks import _PYTHON_DETECT
+
     assert "/../python.exe" in _PYTHON_DETECT
     assert "/python.exe" in _PYTHON_DETECT
 
@@ -628,20 +652,22 @@ def test_hooks_skip_linked_worktrees(name, script):
 
 def _worktree_guard_snippet() -> str:
     from graphify.hooks import _WORKTREE_GUARD
+
     return _WORKTREE_GUARD + "echo RAN\n"
 
 
 def test_worktree_guard_runs_on_primary_skips_linked(tmp_path):
     """End-to-end against a real `git worktree`: the guard falls through on the
     primary checkout and exits early inside a linked worktree (#1809, #1806)."""
+    if sys.platform == "win32":
+        pytest.skip("sh not available on Windows")
     if shutil.which("git") is None:  # pragma: no cover
         pytest.skip("git not available")
     primary = tmp_path / "primary"
     primary.mkdir()
 
     def _git(*args, cwd):
-        subprocess.run(["git", *args], cwd=cwd, check=True,
-                       capture_output=True, text=True)
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
 
     _git("init", "-q", ".", cwd=primary)
     _git("config", "user.email", "t@t.co", cwd=primary)
@@ -653,15 +679,14 @@ def test_worktree_guard_runs_on_primary_skips_linked(tmp_path):
     _git("worktree", "add", "-q", str(linked), "-b", "feature", cwd=primary)
 
     snippet = _worktree_guard_snippet()
-    r_primary = subprocess.run(["sh", "-c", snippet], cwd=primary,
-                               capture_output=True, text=True)
-    r_linked = subprocess.run(["sh", "-c", snippet], cwd=linked,
-                              capture_output=True, text=True)
+    r_primary = subprocess.run(["sh", "-c", snippet], cwd=primary, capture_output=True, text=True)
+    r_linked = subprocess.run(["sh", "-c", snippet], cwd=linked, capture_output=True, text=True)
     assert "RAN" in r_primary.stdout, "guard wrongly skipped the primary checkout"
     assert "RAN" not in r_linked.stdout, "guard failed to skip the linked worktree"
 
 
 # ── #1907: duplicate keys in .git/config must not trigger spurious warnings ──
+
 
 def _append_duplicate_config_entries(repo: Path) -> None:
     """Append git-legal duplicate keys/sections (as VS Code writes them)."""
@@ -704,6 +729,7 @@ def test_hooks_dir_duplicate_config_keys_honor_custom_hookspath(tmp_path, capsys
 
 # ── #1902: hook install must register the graph.json union merge driver ─────
 
+
 def test_install_registers_merge_driver(tmp_path):
     """install() must set merge.graphify.* via git config and add the
     .gitattributes line that README/CHANGELOG 0.7.0 document (#1902)."""
@@ -711,17 +737,15 @@ def test_install_registers_merge_driver(tmp_path):
     result = install(repo)
     res = subprocess.run(
         ["git", "-C", str(repo), "config", "--get", "merge.graphify.driver"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert res.returncode == 0
     driver = res.stdout.strip()
     assert driver
     assert "merge-driver %O %A %B" in driver
     attrs = (repo / ".gitattributes").read_text(encoding="utf-8")
-    assert any(
-        "graph.json" in line and "merge=graphify" in line
-        for line in attrs.splitlines()
-    )
+    assert any("graph.json" in line and "merge=graphify" in line for line in attrs.splitlines())
     assert "merge driver" in result
 
 
@@ -754,7 +778,8 @@ def test_uninstall_removes_merge_driver_keeps_other_attrs(tmp_path):
     uninstall(repo)
     res = subprocess.run(
         ["git", "-C", str(repo), "config", "--get", "merge.graphify.driver"],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     assert res.returncode != 0
     content = (repo / ".gitattributes").read_text(encoding="utf-8")

@@ -1,5 +1,6 @@
 # git hook integration - install/uninstall graphify post-commit and post-checkout hooks
 from __future__ import annotations
+
 import os
 import re
 import sys
@@ -274,7 +275,8 @@ fi
 """
 
 
-_HOOK_SCRIPT = """\
+_HOOK_SCRIPT = (
+    """\
 # graphify-hook-start
 # Auto-rebuilds the knowledge graph after each commit (code files only, no LLM needed).
 # Installed by: graphify hook install
@@ -302,7 +304,9 @@ GIT_DIR=${GIT_DIR:-$(git rev-parse --git-dir 2>/dev/null)}
 
 [ "${GRAPHIFY_SKIP_HOOK:-0}" = "1" ] && exit 0
 
-""" + _WORKTREE_GUARD + """
+"""
+    + _WORKTREE_GUARD
+    + """
 CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || git diff --name-only HEAD 2>/dev/null)
 if [ -z "$CHANGED" ]; then
     exit 0
@@ -314,7 +318,9 @@ if [ -z "$_NON_GRAPH" ]; then
     exit 0
 fi
 
-""" + _PYTHON_DETECT + """
+"""
+    + _PYTHON_DETECT
+    + """
 export GRAPHIFY_CHANGED="$CHANGED"
 
 # Run the rebuild detached so git commit returns immediately. Full-repo rebuilds
@@ -325,11 +331,15 @@ _GRAPHIFY_LOG="${HOME}/.cache/graphify-rebuild.log"
 mkdir -p "$(dirname "$_GRAPHIFY_LOG")"
 export GRAPHIFY_REBUILD_LOG="$_GRAPHIFY_LOG"
 echo "[graphify hook] launching background rebuild (log: $_GRAPHIFY_LOG)"
-""" + _detached_launch(_REBUILD_BODY_COMMIT) + """# graphify-hook-end
 """
+    + _detached_launch(_REBUILD_BODY_COMMIT)
+    + """# graphify-hook-end
+"""
+)
 
 
-_CHECKOUT_SCRIPT = """\
+_CHECKOUT_SCRIPT = (
+    """\
 # graphify-checkout-hook-start
 # Auto-rebuilds the knowledge graph (code only) when switching branches.
 # Installed by: graphify hook install
@@ -373,13 +383,19 @@ GIT_DIR=${GIT_DIR:-$(git rev-parse --git-dir 2>/dev/null)}
 # suppressed commit-triggered rebuilds but not branch-switch ones (#1809).
 [ "${GRAPHIFY_SKIP_HOOK:-0}" = "1" ] && exit 0
 
-""" + _WORKTREE_GUARD + _PYTHON_DETECT + """
+"""
+    + _WORKTREE_GUARD
+    + _PYTHON_DETECT
+    + """
 _GRAPHIFY_LOG="${HOME}/.cache/graphify-rebuild.log"
 mkdir -p "$(dirname "$_GRAPHIFY_LOG")"
 export GRAPHIFY_REBUILD_LOG="$_GRAPHIFY_LOG"
 echo "[graphify] Branch switched - launching background rebuild (log: $_GRAPHIFY_LOG)"
-""" + _detached_launch(_REBUILD_BODY_CHECKOUT) + """# graphify-checkout-hook-end
 """
+    + _detached_launch(_REBUILD_BODY_CHECKOUT)
+    + """# graphify-checkout-hook-end
+"""
+)
 
 
 def _git_root(path: Path) -> Path | None:
@@ -402,7 +418,7 @@ def _reject_windows_path(value: str, source: str) -> None:
     junk directory (backslashes and all), while install reports success and the
     real ``.git/hooks`` gets nothing. Fail loudly instead so the user can fix it.
     """
-    if os.name == "nt":
+    if sys.platform == "win32":
         return
     if _WINDOWS_DRIVE_RE.match(value) or "\\" in value:
         raise RuntimeError(
@@ -430,10 +446,12 @@ def _hooks_dir(root: Path) -> Path:
     # absolute path for worktree/external-gitdir cases, and a path relative to
     # <root> for normal repos — anchoring on root covers both.
     import subprocess as _sp
+
     try:
         res = _sp.run(
             ["git", "-C", str(root), "rev-parse", "--git-path", "hooks"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if res.returncode != 0:
             # git failing here is a real signal (corrupt .git/config, tampering,
@@ -527,6 +545,7 @@ def _merge_attr_line() -> str:
     default name in that case.
     """
     from graphify.paths import GRAPHIFY_OUT
+
     out = GRAPHIFY_OUT
     if not out or Path(out).is_absolute() or "\\" in out:
         out = "graphify-out"
@@ -556,6 +575,7 @@ def _register_merge_driver(root: Path) -> str:
     launcher is not on PATH at merge time.
     """
     import subprocess as _sp
+
     pinned = _pinned_python()
     if pinned:
         # Double-quoted: the allowlist in _pinned_python() permits a space (Windows
@@ -573,7 +593,9 @@ def _register_merge_driver(root: Path) -> str:
         ):
             _sp.run(
                 ["git", "-C", str(root), "config", key, value],
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             )
     except (OSError, _sp.CalledProcessError) as exc:
         return f"not registered (git config failed: {exc})"
@@ -596,12 +618,14 @@ def _register_merge_driver(root: Path) -> str:
 def _unregister_merge_driver(root: Path) -> str:
     """Remove the merge-driver git config keys and the .gitattributes line."""
     import subprocess as _sp
+
     for key in ("merge.graphify.name", "merge.graphify.driver"):
         try:
             # --unset exits nonzero if the key is absent; that is fine.
             _sp.run(
                 ["git", "-C", str(root), "config", "--unset", key],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
         except OSError:
             pass
@@ -609,10 +633,7 @@ def _unregister_merge_driver(root: Path) -> str:
     if not attrs.exists():
         return "not registered - nothing to remove."
     content = attrs.read_text(encoding="utf-8")
-    kept = [
-        raw for raw in content.splitlines()
-        if not _has_merge_attr(raw)
-    ]
+    kept = [raw for raw in content.splitlines() if not _has_merge_attr(raw)]
     if kept == content.splitlines():
         return "gitattributes entry not found - nothing to remove."
     if kept:
@@ -626,10 +647,12 @@ def _unregister_merge_driver(root: Path) -> str:
 def _merge_driver_status(root: Path) -> str:
     """Report whether the merge driver is registered (config + gitattributes)."""
     import subprocess as _sp
+
     try:
         res = _sp.run(
             ["git", "-C", str(root), "config", "--get", "merge.graphify.driver"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         cfg_ok = res.returncode == 0 and bool(res.stdout.strip())
     except OSError:
@@ -693,7 +716,9 @@ def uninstall(path: Path = Path(".")) -> str:
 
     hooks_dir = _user_hooks_dir(_hooks_dir(root))
     commit_msg = _uninstall_hook(hooks_dir, "post-commit", _HOOK_MARKER, _HOOK_MARKER_END)
-    checkout_msg = _uninstall_hook(hooks_dir, "post-checkout", _CHECKOUT_MARKER, _CHECKOUT_MARKER_END)
+    checkout_msg = _uninstall_hook(
+        hooks_dir, "post-checkout", _CHECKOUT_MARKER, _CHECKOUT_MARKER_END
+    )
     merge_msg = _unregister_merge_driver(root)
 
     return f"post-commit: {commit_msg}\npost-checkout: {checkout_msg}\nmerge driver: {merge_msg}"
@@ -710,7 +735,11 @@ def status(path: Path = Path(".")) -> str:
         p = hooks_dir / name
         if not p.exists():
             return "not installed"
-        return "installed" if marker in p.read_text(encoding="utf-8") else "not installed (hook exists but graphify not found)"
+        return (
+            "installed"
+            if marker in p.read_text(encoding="utf-8")
+            else "not installed (hook exists but graphify not found)"
+        )
 
     commit = _check("post-commit", _HOOK_MARKER)
     checkout = _check("post-checkout", _CHECKOUT_MARKER)

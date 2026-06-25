@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -67,6 +68,11 @@ def test_skill_roundtrip_at_real_destination(platform, project, tmp_path, monkey
         if project:
             assert str(dst).startswith(str(project_dir))
         else:
+            if sys.platform == "win32" and platform == "hermes":
+                pytest.skip(
+                    "Hermes user-scope uses LOCALAPPDATA on Windows; "
+                    "covered by test_hermes_skill_destination_windows_uses_localappdata"
+                )
             assert str(dst).startswith(str(home))
 
         returned = mainmod._copy_skill_file(
