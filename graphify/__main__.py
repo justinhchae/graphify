@@ -17,12 +17,19 @@ def _load_dotenv() -> None:
         return
     try:
         from dotenv import load_dotenv
-        load_dotenv(env_file, override=False)
+        try:
+            load_dotenv(env_file, override=False)
+        except OSError:
+            return
         return
     except ImportError:
         pass
     # Fallback: manual parse (no dotenv installed)
-    for line in env_file.read_text(encoding="utf-8").splitlines():
+    try:
+        lines = env_file.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return
+    for line in lines:
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
