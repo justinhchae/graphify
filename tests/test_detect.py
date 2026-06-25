@@ -19,6 +19,14 @@ def test_classify_powershell_manifest():
     # #1331: .psd1 manifests must be classified as CODE so the manifest extractor runs.
     assert classify_file(Path("MyModule.psd1")) == FileType.CODE
 
+def test_classify_arcgis_toolbox():
+    # .pyt ArcGIS Pro Python Toolbox files must be indexed as code
+    assert classify_file(Path("MyTools.pyt")) == FileType.CODE
+
+def test_classify_bat():
+    # .bat Windows launcher scripts must be indexed as code
+    assert classify_file(Path("run.bat")) == FileType.CODE
+
 def test_classify_markdown():
     assert classify_file(Path("README.md")) == FileType.DOCUMENT
 
