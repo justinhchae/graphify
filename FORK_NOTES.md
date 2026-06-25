@@ -35,9 +35,10 @@ All fixes address pre-existing upstream failures on Windows; none alter POSIX be
 - `graphify/watch.py` (`_queue_pending`): `os.fspath(p)` changed to `p.as_posix()` — pending-changes file uses forward-slash paths consistently.
 - `graphify/manifest_ingest.py` (`_parse_apm_fallback`): extracts `version:` field when PyYAML is not installed, fixing `KeyError: 'version'` in `test_apm_parses_name_and_deps`.
 - `tools/skillgen/gen.py` (`_git_show`): added `encoding="utf-8"` to `subprocess.run` — prevents `UnicodeDecodeError` on Windows cp1252 when reading git blobs.
+- `graphify/export.py` (`to_obsidian`): compute `_fname_limit` dynamically from `out.resolve()` on Windows so the total path stays under MAX_PATH (260). Short output paths (≤37 chars) keep the existing 200-byte cap unchanged; deep paths shrink the cap proportionally. Fixes `test_obsidian_long_ascii_label_does_not_crash` and two related tests.
 
 **Deferred (known, not fixed)**
-- `tests/test_obsidian_filename_cap.py` (3 tests): `to_obsidian` generates filenames exceeding Windows MAX_PATH (260 chars). Requires a source fix in `export.py`; deferred pending upstream resolution.
+- None at this time.
 
 ## Rebase Workflow
 
