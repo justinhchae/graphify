@@ -1,6 +1,7 @@
 """Tests for hooks.py - git hook install/uninstall."""
 import os
 import subprocess
+import sys
 from types import SimpleNamespace
 from pathlib import Path
 import pytest
@@ -345,6 +346,10 @@ def _set_hookspath(repo: Path, value: str) -> None:
                    check=True, capture_output=True)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows paths are valid on native Windows; junk-dir risk only exists on POSIX/WSL",
+)
 @pytest.mark.parametrize("winpath", [
     r"C:\Users\u\repo\.git\hooks",
     r"c:/Users/u/.git/hooks",

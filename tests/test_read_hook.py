@@ -8,6 +8,14 @@ silent and fails open.
 """
 import json
 import subprocess
+import sys
+
+import pytest
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="hook command uses 'sh -c' which is not available on Windows",
+)
 
 from graphify.__main__ import _READ_SETTINGS_HOOK
 

@@ -319,6 +319,8 @@ def _reject_windows_path(value: str, source: str) -> None:
     junk directory (backslashes and all), while install reports success and the
     real ``.git/hooks`` gets nothing. Fail loudly instead so the user can fix it.
     """
+    if sys.platform == "win32":
+        return
     if _WINDOWS_DRIVE_RE.match(value) or "\\" in value:
         raise RuntimeError(
             f"git hooks path from {source} looks like a Windows path: {value!r}. "

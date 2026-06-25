@@ -145,6 +145,7 @@ def _parse_apm_fallback(text: str) -> dict | None:
     """Minimal line parser for apm.yml when PyYAML is unavailable: a top-level
     ``name:`` plus a simple ``dependencies:`` block (list items or a name map)."""
     name = None
+    version = None
     deps: list[str] = []
     in_deps = False
     for line in text.splitlines():
@@ -152,6 +153,10 @@ def _parse_apm_fallback(text: str) -> dict | None:
             m = re.match(r'^name:\s*["\']?([^"\'\s#]+)', line)
             if m:
                 name = m.group(1)
+                continue
+            v = re.match(r'^version:\s*["\']?([^"\'\s#]+)', line)
+            if v:
+                version = v.group(1)
                 continue
         if re.match(r'^dependencies:\s*$', line):
             in_deps = True
@@ -163,7 +168,7 @@ def _parse_apm_fallback(text: str) -> dict | None:
                 deps.append(dm.group(1))
             elif re.match(r'^\S', line):  # next top-level key ends the block
                 in_deps = False
-    return {"name": name, "version": None, "deps": deps} if name else None
+    return {"name": name, "version": version, "deps": deps} if name else None
 
 
 def _pep508_name(spec: str) -> str:

@@ -880,6 +880,13 @@ def to_obsidian(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
+    import sys
+    if sys.platform == "win32":
+        # Windows MAX_PATH = 260. Reserve 8 chars for: sep (1) + ".md" (3) + dedup suffix (4).
+        _fname_limit = max(50, min(200, 260 - len(str(out.resolve())) - 8))
+    else:
+        _fname_limit = 200
+
     node_community = _node_community_map(communities)
 
     # Map node_id → safe filename so wikilinks stay consistent.
@@ -895,7 +902,7 @@ def to_obsidian(
         # emit a "@.md"-style filename. (#1409)
         if not re.search(r"\w", cleaned, flags=re.UNICODE):
             return "unnamed"
-        return _cap_filename(cleaned)
+        return _cap_filename(cleaned, limit=_fname_limit)
 
     node_filename = _dedup_node_filenames(G, safe_name)
 

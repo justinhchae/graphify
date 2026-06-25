@@ -1,8 +1,16 @@
 import json
 import os
+import sys
 from collections import Counter
 from pathlib import Path
+
+import pytest
 from graphify.extract import extract_python, extract, collect_files, _make_id, extract_bash, extract_json, _DISPATCH
+
+_win_no_symlink = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="symlinks require elevated privileges on Windows (WinError 1314)",
+)
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -249,6 +257,7 @@ def test_collect_files_skips_hidden():
         assert not any(part.startswith(".") for part in f.parts)
 
 
+@_win_no_symlink
 def test_collect_files_follows_symlinked_directory(tmp_path):
     real_dir = tmp_path / "real_src"
     real_dir.mkdir()
@@ -262,6 +271,7 @@ def test_collect_files_follows_symlinked_directory(tmp_path):
     assert [f.name for f in files_yes].count("lib.py") == 2
 
 
+@_win_no_symlink
 def test_collect_files_handles_circular_symlinks(tmp_path):
     sub = tmp_path / "pkg"
     sub.mkdir()
@@ -285,7 +295,7 @@ def _legacy_collect_files(target, *, root=None):
             if not any(_is_noise_dir(part) for part in p.parts)
             and not (patterns and _is_ignored(p, ignore_root, patterns))
         )
-    return sorted(results)
+    return sorted(set(results))
 
 
 def test_collect_files_parity_with_legacy_on_fixtures():
