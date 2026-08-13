@@ -101,30 +101,53 @@ upstream        https://github.com/safishamsi/graphify.git (push)
 
 ### Upstream sync (when safishamsi/graphify v8 gets new commits)
 
+**Step 1 — Fetch upstream**
 ```
 git fetch upstream
-git rebase upstream/v8
-git push --force-with-lease
 ```
 
-If conflicts occur during rebase, resolve each one then:
+**Step 2 — Find the fork point and squash all PS commits into one**
 
+The fork point hash is printed during `git fetch` (e.g. `1644230..7fe58b0  v8 -> upstream/v8`). Use the left-hand hash:
+```
+git log --oneline <fork-point>..HEAD   # see how many PS commits exist
+git rebase -i <fork-point>             # squash all into 1: keep first as pick, rest as f
+```
+
+**Step 3 — Rebase the single PS commit onto upstream**
+```
+git rebase upstream/v8
+```
+
+**Step 4 — Resolve conflicts (one pass only)**
+
+For each conflicted file:
+```
+git checkout --ours -- <file>   # take upstream version
+git add <file>
+```
+Then re-apply any missing PS patches (see list below), and:
 ```
 git rebase --continue
 ```
 
 To abort and return to pre-rebase state:
-
 ```
 git rebase --abort
 ```
 
-After a rebase, verify the PS patches are intact:
+**Step 5 — Verify PS patches are intact**
 - `_load_dotenv()` call in `graphify/__main__.py`
-- `.pyt` and `.bat` in `graphify/detect.py`
+- `.pyt` and `.bat` in `graphify/detect.py` `CODE_EXTENSIONS`
 - `.pyt` AST support in `graphify/extract.py`: `_LANG_FAMILY_BY_EXT`, `_DISPATCH`, `LanguageResolver` frozenset, cross-file import suffix filter
 - `.pyt` in `graphify/analyze.py`: `_LANG_FAMILY`
-- Windows compatibility fixes (see [PS_FORK.md](PS_FORK.md))
+- `if sys.platform == "win32": return` in `graphify/hooks.py` `_reject_windows_path`
+
+**Step 6 — Push**
+```
+git push --force-with-lease origin v8-ps
+git push --force-with-lease esrips v8-ps
+```
 
 Then re-run the test suite to confirm nothing broke.
 
@@ -132,13 +155,7 @@ Then re-run the test suite to confirm nothing broke.
 
 ### When a new upstream version branch ships (e.g. v9)
 
-```
-git fetch upstream
-git rebase upstream/v9
-git push --force-with-lease
-```
-
-Same as a routine sync — just target the new branch. Expect more conflicts if it is a major version.
+Same as a routine sync — follow the squash-first workflow above, substituting `upstream/v9` for `upstream/v8` in Step 3. Expect more conflicts if it is a major version.
 
 ---
 

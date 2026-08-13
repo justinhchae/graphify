@@ -11,6 +11,19 @@ Branch: v8-ps
 
 ## Changelog
 
+### 2026-08-13 — Upstream sync (upstream/v8 → 7fe58b0, v0.9.29–v0.9.42)
+
+Routine rebase onto `upstream/v8`. No new PS-specific functionality. 14 versions (v0.9.29–v0.9.42), ~100 upstream commits. All 6 PS patches survived; `extract.py`, `analyze.py`, `hooks.py`, `__main__.py` auto-merged cleanly — only `detect.py` required manual `.pyt`/`.bat` re-add (upstream reformatted `CODE_EXTENSIONS` to a single-line set).
+
+Key upstream changes relevant to PS:
+- `fix(hooks)`: upstream replaced `DETACHED_PROCESS` with `CREATE_NO_WINDOW` on Windows (complements our `_reject_windows_path` win32 guard; no conflict).
+- `fix(paths)`: upstream added cross-platform absolute path detection and read-only bit clearing before atomic-write temp unlink on Windows.
+- `test`: upstream added probe-and-skip for symlink creation unavailability — overlaps with our `@_win_no_symlink` markers; upstream version is broader and more portable.
+- `fix(extract)`: upstream canonicalized `source_file` to POSIX separators — benefits Windows runs.
+- `fix(serve)`: dual-compat with MCP SDK 1.x and 2.x.
+
+Sync process change: the fork had accumulated 13 PS commits since the last sync. Introduced squash-first workflow — squash all PS commits to 1 before rebasing (`git rebase -i <fork-point>`) so conflict resolution is a single pass. See `PS_SETUP.md` for updated procedure.
+
 ### 2026-07-27 — Upstream sync (upstream/v8 → 1644230, v0.9.17–v0.9.28)
 
 Routine rebase onto `upstream/v8`. No new PS-specific functionality; changes below are conflict resolutions that preserve existing PS patches while integrating upstream additions (21 commits, v0.9.17 through v0.9.28).
