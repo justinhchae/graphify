@@ -27,6 +27,19 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 GRAPHIFY_OUT = os.environ.get("GRAPHIFY_OUT", "graphify-out")
 
 
+def _is_readonly(path: "str | Path") -> bool:
+    """True when ``path`` exists and carries the read-only attribute.
+
+    Uses ``lstat`` because ``os.replace`` swaps a symlink itself rather than
+    following it (#3286), so the link's own attribute is the relevant one. Any
+    stat failure reports False, leaving the caller's existing behaviour intact.
+    """
+    try:
+        return not (os.lstat(path).st_mode & stat.S_IWRITE)
+    except OSError:
+        return False
+
+
 def os_replace_with_fallback(src: "str | Path", dst: "str | Path") -> None:
     """``os.replace(src, dst)``, falling back to a copy for a known set of
     Windows quirks (#3508) that raise even when ``src``/``dst`` are the same
@@ -50,6 +63,10 @@ def os_replace_with_fallback(src: "str | Path", dst: "str | Path") -> None:
     "whatever was there is gone, a plain file replaces it" semantics. If that
     final rename fails, the backup is renamed straight back so a mid-swap
     failure leaves the original in place rather than leaving ``dst`` missing.
+
+    A ``dst`` carrying the Windows read-only attribute is excluded from the
+    fallback and re-raises instead: that is a deliberate user marking, not the
+    transient lock this exists for, and the swap would silently overwrite it.
     """
     try:
         os.replace(src, dst)
@@ -57,6 +74,7 @@ def os_replace_with_fallback(src: "str | Path", dst: "str | Path") -> None:
     except OSError as exc:
         if not isinstance(exc, PermissionError) and getattr(exc, "winerror", None) != 17:
             raise
+        replace_error = exc  # re-raised below; `exc` is unbound once this block exits
     import shutil
     dst = os.fspath(dst)
     if os.path.normcase(os.path.abspath(os.fspath(src))) == os.path.normcase(os.path.abspath(dst)):
@@ -65,6 +83,13 @@ def os_replace_with_fallback(src: "str | Path", dst: "str | Path") -> None:
         # the "back up dst" step and then crash unlinking a path that no
         # longer exists at the end.
         return
+    # A destination the user marked read-only is not the transient lock the
+    # fallback exists for. Windows permits RENAMING a read-only file (the
+    # attribute blocks delete and overwrite, not rename), so the swap below
+    # would move it aside and clobber it, then fail late on the temp cleanup --
+    # reporting PermissionError only after the damage was already done.
+    if os.name == "nt" and _is_readonly(dst):
+        raise replace_error
     dst_dir = os.path.dirname(dst) or "."
     fd, tmp_copy = tempfile.mkstemp(dir=dst_dir, prefix=".gfy-replace-", suffix=".tmp")
     os.close(fd)

@@ -1640,6 +1640,14 @@ def test_c_include_out_of_root_target_id_is_portable(tmp_path):
     assert include_edges[0]["target"] == "ext_lib_foo_h"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason=(
+        "exceeds MAX_PATH on Windows: the long checkout name plus the cache layout "
+        "(graphify-out/cache/ast/<version>/ + a 64-char hash) overruns 260 chars, and "
+        "cache.py writes without the \\\\?\\ extended-length prefix"
+    ),
+)
 def test_c_include_out_of_root_target_id_is_deterministic_across_checkout_paths(tmp_path):
     """#2243: the SAME corpus, scanned from two differently-named, differently
     nested checkout locations, must produce a byte-identical edge target id for
@@ -5669,8 +5677,12 @@ def test_python_external_calls_survive_real_incremental_context(tmp_path):
     (tmp_path / "ext_b.py").write_text("import requests as rq\n\ndef fetch_b():\n    return rq.post('/b')\n")
     (tmp_path / "helper.py").write_text("def other():\n    return 1\n")
     (tmp_path / "local_caller.py").write_text("import helper\n\ndef fetch_local():\n    return helper.get()\n")
+    # Windows resolves Path.home() from USERPROFILE (or HOMEDRIVE+HOMEPATH), never
+    # HOME, and uses TEMP/TMP rather than TMPDIR; without them the CLI aborts at
+    # startup with "Could not determine home directory".
     env = {k: v for k, v in os.environ.items()
-           if k in {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "PYTHONDONTWRITEBYTECODE"}}
+           if k in {"PATH", "HOME", "TMPDIR", "LANG", "LC_ALL", "PYTHONDONTWRITEBYTECODE",
+                    "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "TEMP", "TMP", "SYSTEMROOT"}}
     env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
 
     def run():

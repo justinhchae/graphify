@@ -10,9 +10,11 @@ around every reader cannot help — ``graphify update`` simply never returns and
 prints nothing. A unix socket fails differently (``ENXIO``) but for the same
 reason: it is not a regular file.
 """
+
 import os
 import socket
 import stat
+import sys
 import tempfile
 from pathlib import Path
 
@@ -34,6 +36,7 @@ def test_regular_source_file_is_accepted(tree):
     assert _is_regular_file(tree / "src" / "module.py") is True
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.mkfifo does not exist on Windows")
 def test_fifo_is_rejected(tree):
     """The shape that hangs the whole run."""
     fifo = tree / "src" / "pipe.py"
@@ -42,6 +45,7 @@ def test_fifo_is_rejected(tree):
     assert _is_regular_file(fifo) is False
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="socket.AF_UNIX does not exist on Windows")
 def test_unix_socket_is_rejected(tree):
     sock_path = tree / "src" / "sock.py"
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -58,6 +62,9 @@ def test_directory_named_like_a_source_file_is_rejected(tree):
     assert _is_regular_file(d) is False
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="symlink creation needs elevated privileges (WinError 1314)"
+)
 def test_symlink_to_a_regular_file_is_accepted(tree):
     target = tree / "src" / "module.py"
     link = tree / "src" / "alias.py"
@@ -65,6 +72,7 @@ def test_symlink_to_a_regular_file_is_accepted(tree):
     assert _is_regular_file(link) is True
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="os.mkfifo does not exist on Windows")
 def test_symlink_pointing_at_a_fifo_is_rejected(tree):
     """A link to a FIFO blocks exactly like the FIFO, so stat must follow it."""
     fifo = tree / "src" / "real.py"
@@ -74,6 +82,9 @@ def test_symlink_pointing_at_a_fifo_is_rejected(tree):
     assert _is_regular_file(link) is False
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="symlink creation needs elevated privileges (WinError 1314)"
+)
 def test_broken_symlink_is_rejected_without_raising(tree):
     link = tree / "src" / "dangling.py"
     link.symlink_to(tree / "src" / "does-not-exist.py")

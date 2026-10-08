@@ -30,7 +30,7 @@ _BUILTIN_NOISE_LABELS = frozenset({
 
 # Language families — extensions sharing a runtime can legitimately call each other
 _LANG_FAMILY: dict[str, str] = {
-    **{e: "python" for e in (".py", ".pyw")},
+    **{e: "python" for e in (".py", ".pyw", ".pyt")},
     **{e: "js" for e in (".js", ".jsx", ".mjs", ".cjs", ".ejs", ".ts", ".tsx", ".mts", ".cts", ".vue", ".svelte")},
     **{e: "go" for e in (".go",)},
     **{e: "rust" for e in (".rs",)},

@@ -21,6 +21,8 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import sys
+
 import pytest
 
 import graphify
@@ -52,6 +54,8 @@ def test_skill_roundtrip_at_real_destination(platform, project, tmp_path, monkey
     stamp the version, and stage references/ iff the bundle ships. Uninstall must
     remove the skill, the stamp, the references, and walk the now-empty dirs away.
     """
+    if sys.platform == "win32" and platform == "hermes" and not project:
+        pytest.skip("hermes user-scope resolves under LOCALAPPDATA on Windows, not home")
     home = tmp_path / "home"
     project_dir = tmp_path / "proj"
     home.mkdir()

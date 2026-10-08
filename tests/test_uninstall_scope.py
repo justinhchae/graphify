@@ -12,6 +12,7 @@ These tests pin the fixed contract:
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -23,10 +24,14 @@ from graphify.install import (
     gemini_uninstall,
 )
 
+# gemini's user-scope skill lives under ~/.agents on Windows (see
+# _platform_skill_destination); the project scope still uses .gemini everywhere.
+_GEMINI_USER_DOT_DIR = ".agents" if sys.platform == "win32" else ".gemini"
+
 PLATFORMS = [
-    pytest.param(claude_uninstall, "claude", ".claude", id="claude"),
-    pytest.param(gemini_uninstall, "gemini", ".gemini", id="gemini"),
-    pytest.param(codebuddy_uninstall, "codebuddy", ".codebuddy", id="codebuddy"),
+    pytest.param(claude_uninstall, "claude", ".claude", ".claude", id="claude"),
+    pytest.param(gemini_uninstall, "gemini", _GEMINI_USER_DOT_DIR, ".gemini", id="gemini"),
+    pytest.param(codebuddy_uninstall, "codebuddy", ".codebuddy", ".codebuddy", id="codebuddy"),
 ]
 
 
@@ -40,12 +45,14 @@ def _plant_skill_tree(root: Path, dot_dir: str) -> Path:
     return skill_dir
 
 
-@pytest.mark.parametrize("uninstall_fn,platform,dot_dir", PLATFORMS)
-def test_project_dir_call_never_touches_global(uninstall_fn, platform, dot_dir, tmp_path):
+@pytest.mark.parametrize("uninstall_fn,platform,user_dot_dir,project_dot_dir", PLATFORMS)
+def test_project_dir_call_never_touches_global(
+    uninstall_fn, platform, user_dot_dir, project_dot_dir, tmp_path
+):
     """fn(project_dir) removes only the project skill tree (#2215 trap closed)."""
-    global_tree = _plant_skill_tree(Path.home(), dot_dir)
+    global_tree = _plant_skill_tree(Path.home(), user_dot_dir)
     proj_dir = tmp_path / "proj"
-    project_tree = _plant_skill_tree(proj_dir, dot_dir)
+    project_tree = _plant_skill_tree(proj_dir, project_dot_dir)
 
     uninstall_fn(proj_dir)
 
@@ -56,10 +63,12 @@ def test_project_dir_call_never_touches_global(uninstall_fn, platform, dot_dir, 
     assert not project_tree.exists()
 
 
-@pytest.mark.parametrize("uninstall_fn,platform,dot_dir", PLATFORMS)
-def test_bare_call_still_removes_global(uninstall_fn, platform, dot_dir, tmp_path, monkeypatch):
+@pytest.mark.parametrize("uninstall_fn,platform,user_dot_dir,project_dot_dir", PLATFORMS)
+def test_bare_call_still_removes_global(
+    uninstall_fn, platform, user_dot_dir, project_dot_dir, tmp_path, monkeypatch
+):
     """fn() with no args keeps the historical CLI behavior: global skill removed."""
-    global_tree = _plant_skill_tree(Path.home(), dot_dir)
+    global_tree = _plant_skill_tree(Path.home(), user_dot_dir)
     cwd = tmp_path / "empty-cwd"
     cwd.mkdir()
     monkeypatch.chdir(cwd)
@@ -70,12 +79,14 @@ def test_bare_call_still_removes_global(uninstall_fn, platform, dot_dir, tmp_pat
     assert not global_tree.exists()
 
 
-@pytest.mark.parametrize("uninstall_fn,platform,dot_dir", PLATFORMS)
-def test_remove_user_skill_opt_in_with_project_dir(uninstall_fn, platform, dot_dir, tmp_path):
+@pytest.mark.parametrize("uninstall_fn,platform,user_dot_dir,project_dot_dir", PLATFORMS)
+def test_remove_user_skill_opt_in_with_project_dir(
+    uninstall_fn, platform, user_dot_dir, project_dot_dir, tmp_path
+):
     """fn(pd, remove_user_skill=True) removes the global skill, leaves the project tree."""
-    global_tree = _plant_skill_tree(Path.home(), dot_dir)
+    global_tree = _plant_skill_tree(Path.home(), user_dot_dir)
     proj_dir = tmp_path / "proj"
-    project_tree = _plant_skill_tree(proj_dir, dot_dir)
+    project_tree = _plant_skill_tree(proj_dir, project_dot_dir)
 
     uninstall_fn(proj_dir, remove_user_skill=True)
 
@@ -85,12 +96,14 @@ def test_remove_user_skill_opt_in_with_project_dir(uninstall_fn, platform, dot_d
     assert (project_tree / "references" / "x.md").exists()
 
 
-@pytest.mark.parametrize("uninstall_fn,platform,dot_dir", PLATFORMS)
-def test_project_true_removes_only_project_tree(uninstall_fn, platform, dot_dir, tmp_path):
+@pytest.mark.parametrize("uninstall_fn,platform,user_dot_dir,project_dot_dir", PLATFORMS)
+def test_project_true_removes_only_project_tree(
+    uninstall_fn, platform, user_dot_dir, project_dot_dir, tmp_path
+):
     """fn(pd, project=True) removes only the project skill tree."""
-    global_tree = _plant_skill_tree(Path.home(), dot_dir)
+    global_tree = _plant_skill_tree(Path.home(), user_dot_dir)
     proj_dir = tmp_path / "proj"
-    project_tree = _plant_skill_tree(proj_dir, dot_dir)
+    project_tree = _plant_skill_tree(proj_dir, project_dot_dir)
 
     uninstall_fn(proj_dir, project=True)
 

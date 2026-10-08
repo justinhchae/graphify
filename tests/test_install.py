@@ -515,7 +515,7 @@ def test_codex_skill_uses_graphify_with_existing_graph():
     fast-path block, which jumps straight to the query flow when a graph exists.
     """
     import graphify
-    skill = (Path(graphify.__file__).parent / "skill-codex.md").read_text()
+    skill = (Path(graphify.__file__).parent / "skill-codex.md").read_text(encoding="utf-8")
     assert "Fast path — existing graph" in skill
     assert "skip Steps 1–5 entirely and jump straight to `## For /graphify query`" in skill
     assert "graphify query" in skill
@@ -1430,6 +1430,7 @@ def test_hermes_skill_destination_windows_uses_localappdata():
     assert dst == Path("/tmp/AppDataLocal") / "hermes" / "skills" / "graphify" / "SKILL.md", dst
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="asserts the POSIX ~/.hermes destination")
 def test_hermes_skill_destination_posix_uses_home():
     """Non-Windows hermes destination is unchanged (~/.hermes/skills)."""
     from graphify.__main__ import _platform_skill_destination

@@ -304,7 +304,9 @@ def test_gemini_install_references_all_resolve(tmp_path):
     """
     import re
     _install(tmp_path, "gemini")
-    skill = tmp_path / ".gemini" / "skills" / "graphify" / "SKILL.md"
+    # gemini's user-scope skill lives under .agents on Windows (#_platform_skill_destination)
+    dot_dir = ".agents" if sys.platform == "win32" else ".gemini"
+    skill = tmp_path / dot_dir / "skills" / "graphify" / "SKILL.md"
     assert skill.exists()
     refdir = skill.parent / "references"
     assert refdir.is_dir()

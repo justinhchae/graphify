@@ -3335,6 +3335,7 @@ _LANG_FAMILY_BY_EXT: dict[str, str] = {
     ".metal": "native", ".m": "native", ".mm": "native", ".swift": "native",
     # Single-language families
     ".py": "python",
+    ".pyt": "python",
     ".go": "go",
     ".rs": "rust",
     ".cbl": "cobol", ".cob": "cobol", ".cobol": "cobol", ".cpy": "cobol",
@@ -5879,7 +5880,7 @@ register_language_resolver(
     LanguageResolver("swift_member_calls", frozenset({".swift"}), _resolve_swift_member_calls)
 )
 register_language_resolver(
-    LanguageResolver("python_member_calls", frozenset({".py"}), _resolve_python_member_calls)
+    LanguageResolver("python_member_calls", frozenset({".py", ".pyt"}), _resolve_python_member_calls)
 )
 # Ruby type-aware member-call resolution (Class.new + typed var.method). Lives in
 # graphify.ruby_resolution; registered here as a second consumer of the framework.
@@ -7019,6 +7020,7 @@ def extract_xaml(path: Path) -> dict:
 
 _DISPATCH: dict[str, Any] = {
     ".py": extract_python,
+    ".pyt": extract_python,
     ".js": extract_js,
     ".jsx": extract_js,
     ".mjs": extract_js,
@@ -8515,9 +8517,9 @@ def extract(
                 "Go type-reference resolution failed, skipping: %s", exc
             )
     # Cross-file Python import resolution and type-reference repointing (#3252)
-    py_paths = [p for p in paths if p.suffix == ".py"]
+    py_paths = [p for p in paths if p.suffix in {".py", ".pyt"}]
     if py_paths:
-        py_results = [r for r, p in zip(per_file, paths) if p.suffix == ".py"]
+        py_results = [r for r, p in zip(per_file, paths) if p.suffix in {".py", ".pyt"}]
         try:
             cross_file_edges = _resolve_cross_file_imports(
                 py_results, py_paths, all_nodes, all_edges,

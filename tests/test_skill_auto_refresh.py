@@ -55,7 +55,14 @@ def _stamp(dst: Path) -> str:
 # ---------------------------------------------------------------------------
 
 def test_every_stale_platform_is_refreshed_not_only_the_detected_one(capsys):
-    dsts = {name: _stale(name) for name in ("claude", "codex", "opencode", "gemini")}
+    # On Windows _refresh_stale_skills picks the 'windows' variant over 'claude'
+    # (same dir, different host shell) and skips gemini, whose ~/.agents dir is
+    # also written by the 'agents' platform — see the _refresh_stale_skills docstring.
+    if sys.platform == "win32":
+        names = ("windows", "codex", "opencode")
+    else:
+        names = ("claude", "codex", "opencode", "gemini")
+    dsts = {name: _stale(name) for name in names}
 
     mainmod._refresh_stale_skills()
 
@@ -462,7 +469,10 @@ def test_a_stale_gemini_skill_gets_the_warning_too(monkeypatch, capsys):
 
     err = capsys.readouterr().err
     assert f"warning: skill at {dst.parent} is from graphify {OLD}" in err
-    assert "graphify install --platform gemini" in err
+    # On Windows gemini's user skill lives in ~/.agents, which the 'agents'
+    # platform also writes; the warning names the first platform resolving there.
+    expected_platform = "agents" if sys.platform == "win32" else "gemini"
+    assert f"graphify install --platform {expected_platform}" in err
 
 
 def test_the_first_cli_run_after_an_upgrade_refreshes_and_stays_quiet(monkeypatch, capsys):
