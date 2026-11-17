@@ -205,6 +205,11 @@ def _semantic_cache(proj: Path) -> dict[str, bytes]:
             for d in root.glob("semantic*") for p in d.rglob("*") if p.is_file()}
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="runs bash runbooks against .graphify_python, which holds a backslash Windows "
+    "interpreter path that bash strips to 'C:Users...' (command not found)",
+)
 @pytest.mark.parametrize("host,anchors", HOSTS)
 def test_code_only_update_follows_its_paragraph_and_merges_the_new_function(host, anchors, tmp_path):
     book = Runbook(host, anchors)

@@ -97,6 +97,9 @@ def test_absolute_path_lookup_skips_getcwd(tmp_path, monkeypatch):
     real_getcwd = os.getcwd
     monkeypatch.chdir(tmp_path)
     assert _source_key("a.py", tmp_path) == "a.py"  # warm the memo
+    # Windows Path.resolve() calls getcwd on a miss, so warm the absolute key too:
+    # the contract is that a memo HIT skips getcwd.
+    assert _source_key(absolute, tmp_path) == "a.py"
     monkeypatch.setattr(os, "getcwd", lambda: calls.append(1) or real_getcwd())
     assert _source_key(absolute, tmp_path) == "a.py"
     assert calls == []

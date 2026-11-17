@@ -81,6 +81,9 @@ def test_absolute_path_lookup_skips_getcwd(tmp_path, monkeypatch):
     real_getcwd = os.getcwd
     monkeypatch.chdir(tmp_path)
     assert _resolve_cached("a.py") == expected  # warm the memo
+    # Windows Path.resolve() calls getcwd on a miss, so warm the absolute key too:
+    # the contract is that a memo HIT skips getcwd.
+    assert _resolve_cached(target) == expected
     monkeypatch.setattr(os, "getcwd", lambda: calls.append(1) or real_getcwd())
     assert _resolve_cached(target) == expected
     assert _resolve_cached(str(target)) == expected
